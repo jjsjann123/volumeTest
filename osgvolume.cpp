@@ -75,6 +75,9 @@
 #include <omegaToolkit.h>
 #include <omegaOsg/omegaOsg.h>
 
+int globalArgc;
+char** globalArgv;
+
 enum ShadingModel
 {
     Standard,
@@ -438,19 +441,23 @@ using namespace omegaOsg;
 class myOsgVolume : public EngineModule
 {
 public:
-	myOsgVolume()
+	myOsgVolume() : arguments(&globalArgc, globalArgv)
 	{
 		myOsg = new OsgModule();
 		ModuleServices::addModule(myOsg);
 	}
 
 	virtual void initialize();
+	void setArguments();
 	//virtual void update(const UpdateContext&context);
 
 private:
 	Ref<OsgModule> myOsg;
+	osg::ArgumentParser arguments;
 
 };
+
+#if 0
 
 void myOsgVolume::initialize()
 {
@@ -536,29 +543,60 @@ void myOsgVolume::initialize()
 
 	 myOsg->setRootNode(root);
 }
+#else
 
-int main(int argc, char** argv)
+void myOsgVolume::setArguments()
 {
-	Application<myOsgVolume> app("myvolume");
-	std::cout << "test" << std::endl;
-	return omain(app, argc, argv);
+	//osg::ArgumentParser arguments(&argc,argv);
+	// set up the usage document, in case we need to print out how to use this program.
+	arguments.getApplicationUsage()->setDescription(arguments.getApplicationName()+" is the example which demonstrates use of 3D textures.");
+	arguments.getApplicationUsage()->setCommandLineUsage(arguments.getApplicationName()+" [options] filename ...");
+	arguments.getApplicationUsage()->addCommandLineOption("-h or --help","Display this information");
+	arguments.getApplicationUsage()->addCommandLineOption("--images [filenames]","Specify a stack of 2d images to build the 3d volume from.");
+	arguments.getApplicationUsage()->addCommandLineOption("--shader","Use OpenGL Shading Language. (default)");
+	arguments.getApplicationUsage()->addCommandLineOption("--no-shader","Disable use of OpenGL Shading Language.");
+	arguments.getApplicationUsage()->addCommandLineOption("--gpu-tf","Aply the transfer function on the GPU. (default)");
+	arguments.getApplicationUsage()->addCommandLineOption("--cpu-tf","Apply the transfer function on the CPU.");
+	arguments.getApplicationUsage()->addCommandLineOption("--mip","Use Maximum Intensity Projection (MIP) filtering.");
+	arguments.getApplicationUsage()->addCommandLineOption("--isosurface","Use Iso surface render.");
+	arguments.getApplicationUsage()->addCommandLineOption("--light","Use normals computed on the GPU to render a lit volume.");
+	arguments.getApplicationUsage()->addCommandLineOption("-n","Use normals computed on the GPU to render a lit volume.");
+	arguments.getApplicationUsage()->addCommandLineOption("--xSize <size>","Relative width of rendered brick.");
+	arguments.getApplicationUsage()->addCommandLineOption("--ySize <size>","Relative length of rendered brick.");
+	arguments.getApplicationUsage()->addCommandLineOption("--zSize <size>","Relative height of rendered brick.");
+	arguments.getApplicationUsage()->addCommandLineOption("--maxTextureSize <size>","Set the texture maximum resolution in the s,t,r (x,y,z) dimensions.");
+	arguments.getApplicationUsage()->addCommandLineOption("--s_maxTextureSize <size>","Set the texture maximum resolution in the s (x) dimension.");
+	arguments.getApplicationUsage()->addCommandLineOption("--t_maxTextureSize <size>","Set the texture maximum resolution in the t (y) dimension.");
+	arguments.getApplicationUsage()->addCommandLineOption("--r_maxTextureSize <size>","Set the texture maximum resolution in the r (z) dimension.");
+	arguments.getApplicationUsage()->addCommandLineOption("--modulate-alpha-by-luminance","For each pixel multiply the alpha value by the luminance.");
+	arguments.getApplicationUsage()->addCommandLineOption("--replace-alpha-with-luminance","For each pixel set the alpha value to the luminance.");
+	arguments.getApplicationUsage()->addCommandLineOption("--replace-rgb-with-luminance","For each rgb pixel convert to the luminance.");
+	arguments.getApplicationUsage()->addCommandLineOption("--num-components <num>","Set the number of components to in he target image.");
+	arguments.getApplicationUsage()->addCommandLineOption("--no-rescale","Disable the rescaling of the pixel data to 0.0 to 1.0 range");
+	arguments.getApplicationUsage()->addCommandLineOption("--rescale","Enable the rescale of the pixel data to 0.0 to 1.0 range (default).");
+	arguments.getApplicationUsage()->addCommandLineOption("--shift-min-to-zero","Shift the pixel data so min value is 0.0.");
+	arguments.getApplicationUsage()->addCommandLineOption("--sequence-length <num>","Set the length of time that a sequence of images with run for.");
+	arguments.getApplicationUsage()->addCommandLineOption("--sd <num>","Short hand for --sequence-length");
+	arguments.getApplicationUsage()->addCommandLineOption("--sdwm <num>","Set the SampleDensityWhenMovingProperty to specified value");
+	arguments.getApplicationUsage()->addCommandLineOption("--lod","Enable techniques to reduce the level of detail when moving.");
+	//    arguments.getApplicationUsage()->addCommandLineOption("--raw <sizeX> <sizeY> <sizeZ> <numberBytesPerComponent> <numberOfComponents> <endian> <filename>","read a raw image data");
 }
 
-/*
-int main( int argc, char **argv )
-{
 
+void myOsgVolume::initialize()
+{
+	setArguments();
     // if user request help write it out to cout.
     if (arguments.read("-h") || arguments.read("--help"))
     {
         arguments.getApplicationUsage()->write(std::cout);
-        return 1;
+        return;
     }
 
     std::string outputFile;
     while (arguments.read("-o",outputFile)) {}
 
-
+	
 
     osg::ref_ptr<osg::TransferFunction1D> transferFunction;
     std::string tranferFunctionFile;
@@ -600,7 +638,7 @@ int main( int argc, char **argv )
         while (arguments.read("--clip",sliceEnd)) { OSG_NOTICE<<"Warning: --clip option no longer supported."<<std::endl; invalidOption = true; }
 
 
-        if (invalidOption) return 1;
+        if (invalidOption) return;
     }
 
     float xMultiplier=1.0f;
@@ -631,9 +669,7 @@ int main( int argc, char **argv )
     while (arguments.read("--zSize",zSize)) {}
 
     osg::ref_ptr<TestSupportOperation> testSupportOperation = new TestSupportOperation;
-    viewer.setRealizeOperation(testSupportOperation.get());
 
-    viewer.realize();
 
     int maximumTextureSize = testSupportOperation->maximumTextureSize;
     int s_maximumTextureSize = maximumTextureSize;
@@ -716,7 +752,7 @@ int main( int argc, char **argv )
         if (xdim*ydim*zdim==0)
         {
             std::cout<<"Error in reading volume header "<<vh_filename<<std::endl;
-            return 1;
+            return;
         }
 
         if (!raw_filename.empty())
@@ -747,7 +783,7 @@ int main( int argc, char **argv )
                 if (colorMap.empty())
                 {
                     std::cout<<"Error: No values read from transfer function file: "<<transfer_filename<<std::endl;
-                    return 0;
+                    return;
                 }
 
                 transferFunction = new osg::TransferFunction1D;
@@ -822,7 +858,7 @@ int main( int argc, char **argv )
     if (arguments.errors())
     {
         arguments.writeErrorMessages(std::cout);
-        return 1;
+        return;
     }
 
 
@@ -864,7 +900,7 @@ int main( int argc, char **argv )
                 else
                 {
                     osg::notify(osg::NOTICE)<<"Error: could not find file: "<<filename<<std::endl;
-                    return 1;
+                    return;
                 }
             }
         }
@@ -873,7 +909,7 @@ int main( int argc, char **argv )
     if (images.empty())
     {
         std::cout<<"No model loaded, please specify a volumetric image file on the command line."<<std::endl;
-        return 1;
+        return;
     }
 
 
@@ -890,7 +926,7 @@ int main( int argc, char **argv )
             (*sizeItr)->r() != image_r)
         {
             std::cout<<"Images in sequence are not of the same dimensions."<<std::endl;
-            return 1;
+            return;
         }
     }
 
@@ -1156,7 +1192,7 @@ int main( int argc, char **argv )
             std::cout<<"Extension not support for file output, not file written."<<std::endl;
         }
 
-        return 0;
+        return;
     }
 
     if (volume.valid())
@@ -1190,13 +1226,23 @@ int main( int argc, char **argv )
         }
 
 
-        // set the scene to render
-        viewer.setSceneData(loadedModel.get());
+        //// set the scene to render
+        //viewer.setSceneData(loadedModel.get());
 
-        // the the viewers main frame loop
-        viewer.run();
+        //// the the viewers main frame loop
+        //viewer.run();
+
+		myOsg->setRootNode(loadedModel.get());
     }
 
-    return 0;
+    return;
 }
-*/
+#endif
+
+int main(int argc, char** argv)
+{
+	
+	Application<myOsgVolume> app("myvolume");
+	std::cout << "test" << std::endl;
+	return omain(app, argc, argv);
+}

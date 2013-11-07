@@ -1,0 +1,11 @@
+cmake_minimum_required(VERSION 2.8.1)
+#SET(TARGET_SRC osgvolume.cpp )
+project(volume)
+
+#SET(TARGET_ADDED_LIBRARIES osgVolume osgManipulator)
+find_package(Omegalib)
+include_directories(${OMEGA_INCLUDE_DIRS})
+add_executable(volume myvolume.cpp)
+target_link_libraries(volume ${OMEGA_LIB} ${OMEGA_OSG_LIB}) 
+#### end var setup  ###
+#SETUP_EXAMPLE(osgvolume)
